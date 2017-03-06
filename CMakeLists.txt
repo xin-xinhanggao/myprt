@@ -71,6 +71,8 @@ add_executable(myprt
 	common/image_DXT.c
 	common/Camera.h
 	common/Shader.h
+	common/Model.h
+	common/Mesh.h
 )
 target_link_libraries(myprt
 	${ALL_LIBS}
