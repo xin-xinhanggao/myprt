@@ -56,7 +56,7 @@ add_definitions(
 	-D_CRT_SECURE_NO_WARNINGS
 )
 
-# Tutorial 1
+
 add_executable(myprt 
 	myprt/main.cpp
 	common/SOIL.h
@@ -73,6 +73,8 @@ add_executable(myprt
 	common/Shader.h
 	common/Model.h
 	common/Mesh.h
+	common/texture.h
+	common/prt_shader.h
 )
 target_link_libraries(myprt
 	${ALL_LIBS}
