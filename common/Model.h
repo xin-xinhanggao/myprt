@@ -121,6 +121,7 @@ private:
             }
             else
                 vertex.TexCoords = glm::vec2(0.0f, 0.0f);
+            vertex.Prtcolor = glm::vec3(1.0f, 1.0f, 1.0f);
             vertices.push_back(vertex);
         }
         // Now wak through each of the mesh's faces (a face is a mesh its triangle) and retrieve the corresponding vertex indices.
