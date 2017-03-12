@@ -44,11 +44,13 @@ public:
         this->vertices = vertices;
         this->indices = indices;
         this->textures = textures;
+    }
 
+    void setup()
+    {
         // Now that we have all the required data, set the vertex buffers and its attribute pointers.
         this->setupMesh();
     }
-
     // Render the mesh
     void Draw(Shader shader) 
     {

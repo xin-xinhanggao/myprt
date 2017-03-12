@@ -5,6 +5,7 @@
 #include "Model.h"
 #include "Camera.h"
 #include "texture.h"
+#include "lamptexture.h"
 
 #include <iostream>
 #include <cmath>
@@ -17,7 +18,7 @@
 class Prt{
 private:
     int lmax = 5;
-    const static int samps = 10000;
+    const static int samps = 100;
 
     std::vector<float> phi, theta;
     std::vector<float> p_coeff;
@@ -31,6 +32,20 @@ private:
 	Shader modelshader;
 	Shader boxshader;
 	Model ourModel;
+    LampTexture* lamptexture;
+
+    GLfloat envmap[12] = {
+        -1.f, -1.f, 0.f,
+        -1.f, 1.f, 0.f,
+        1.f, -1.f, 0.f,
+        1.f, 1.f, 0.f
+    };
+
+    GLuint indices[6] = { 
+        0, 2, 1, 
+        1, 2, 3  
+    };
+
 	GLfloat skyboxVertices[108] = {
         // Positions          
         -1.0f,  1.0f, -1.0f,
@@ -76,7 +91,9 @@ private:
          1.0f, -1.0f,  1.0f
     };
     
+
 	GLuint skyboxVAO, cubemapTexture, skyboxVBO;
+    GLuint vertexArrayID, vertexBufferPositionID, vertexBufferIndicesID;
 	std::vector<const GLchar*> faces;
 
     int p(int l,int m) 
@@ -184,13 +201,57 @@ public:
         generate_sample_angles();
         generate_sh();
         
+        lamptexture = new LampTexture("/Users/apple/Desktop/myprt/texture/Lamp.jpg");
         modelshader.load("/Users/apple/Desktop/myprt/shader/model.vs", "/Users/apple/Desktop/myprt/shader/model.frag");
-        boxshader.load("/Users/apple/Desktop/myprt/shader/skybox.vs", "/Users/apple/Desktop/myprt/shader/skybox.frag");
+        boxshader.load("/Users/apple/Desktop/myprt/shader/envmap.vs", "/Users/apple/Desktop/myprt/shader/envmap.frag");
+        //boxshader.load("/Users/apple/Desktop/myprt/shader/skybox.vs", "/Users/apple/Desktop/myprt/shader/skybox.frag");
         ourModel.loadModel("/Users/apple/Desktop/myprt/obj/nanosuit/nanosuit.obj");
     }
     
+    glm::vec3 calc_diffuse_color(Vertex vertex)
+    {
+        int lmaxlmax = (lmax + 1) * (lmax + 1);
+        for (int j = 0; j < lmaxlmax; ++j) {
+            light_coeff[j] = glm::vec3(0, 0, 0);
+            transfer_coeff[j] = glm::vec3(0, 0, 0);
+        }
+
+        for (int j = 0; j < samps; ++j) {
+            //glm::vec3 color_value = panorama.get_color(phi[j], theta[j]);
+            glm::vec3 color_value = glm::vec3(5.0,5.0,5.0) * lamptexture->get_color(phi[j],theta[j]);
+            // calc light
+            for (int k = 0; k < lmaxlmax; ++k) {
+                light_coeff[k] += color_value * y_coeff[j][k];
+            }
+            // calc transfer
+            //glm::vec3 pos(model.positionData[i], model.positionData[i + 1], model.positionData[i + 2]);
+            //glm::vec3 dir(sin(theta[j]) * cos(phi[j]), sin(theta[j]) * sin(phi[j]), cos(theta[j]));
+            if (1)//!bvhTree.ray_intersect_with_mesh(BvhTree::Ray(pos, dir)))
+            {
+                float cos_value = glm::dot(
+                    vertex.Normal,
+                    glm::vec3(sin(theta[j]) * cos(phi[j]), sin(theta[j]) * sin(phi[j]), cos(theta[j]))
+                );
+                
+                for (int k = 0; k < lmaxlmax; ++k) {
+                    float single = std::max(cos_value, 0.f) * y_coeff[j][k];
+                    transfer_coeff[k] += glm::vec3(single, single, single);
+                }
+            }
+        }
+        glm::vec3 color(0, 0, 0);
+        for (int j = 0; j < lmaxlmax; ++j) {
+            light_coeff[j] *= (4.f * M_PI) / float(samps);
+            transfer_coeff[j] *= (4.f * M_PI) / float(samps);
+            color += light_coeff[j] * transfer_coeff[j] / float(M_PI);
+        }
+
+        return color;
+    }
+
 	void prepare()
     {
+        /*
         glGenVertexArrays(1, &skyboxVAO);
         glGenBuffers(1, &skyboxVBO);
         glBindVertexArray(skyboxVAO);
@@ -200,7 +261,6 @@ public:
         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (GLvoid*)0);
         glBindVertexArray(0);
         
-        
         faces.push_back("/Users/apple/Desktop/myprt/texture/skybox/right.jpg");
         faces.push_back("/Users/apple/Desktop/myprt/texture/skybox/left.jpg");
         faces.push_back("/Users/apple/Desktop/myprt/texture/skybox/top.jpg");
@@ -208,6 +268,41 @@ public:
         faces.push_back("/Users/apple/Desktop/myprt/texture/skybox/back.jpg");
         faces.push_back("/Users/apple/Desktop/myprt/texture/skybox/front.jpg");
         cubemapTexture = loadCubemap(faces);
+        */
+        glGenTextures(1, &cubemapTexture);
+        glBindTexture(GL_TEXTURE_2D, cubemapTexture);
+        int width, height;
+        unsigned char* image = SOIL_load_image("/Users/apple/Desktop/myprt/texture/Lamp.jpg", &width, &height, 0, SOIL_LOAD_RGB);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glBindTexture(GL_TEXTURE_2D, 0);
+
+        glGenVertexArrays(1, &vertexArrayID);
+        glBindVertexArray(vertexArrayID);
+
+        glGenBuffers(1, &vertexBufferPositionID);
+        glBindBuffer(GL_ARRAY_BUFFER, vertexBufferPositionID);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(envmap), envmap, GL_STATIC_DRAW);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
+        glEnableVertexAttribArray(0);
+
+        glGenBuffers(1, &vertexBufferIndicesID);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vertexBufferIndicesID);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+        glBindVertexArray(0);
+
+        for(int i = 0; i < ourModel.meshes.size(); i++)
+        {
+            Mesh& mesh = ourModel.meshes[i];
+            for(int j = 0; j < mesh.vertices.size(); j++)
+            {
+                mesh.vertices[j].Prtcolor = calc_diffuse_color(mesh.vertices[j]);
+            }
+            mesh.setup();
+        }
     }
 
 	void render(Camera camera)
@@ -224,9 +319,11 @@ public:
         glUniformMatrix4fv(glGetUniformLocation(modelshader.Program, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
         ourModel.Draw(modelshader);
         
+        
         // Draw skybox as last
         glDepthFunc(GL_LEQUAL);  // Change depth function so depth test passes when values are equal to depth buffer's content
         boxshader.Use();
+        /*
         view = glm::mat4(glm::mat3(camera.GetViewMatrix()));	// Remove any translation component of the view matrix
         glUniformMatrix4fv(glGetUniformLocation(boxshader.Program, "view"), 1, GL_FALSE, glm::value_ptr(view));
         glUniformMatrix4fv(glGetUniformLocation(boxshader.Program, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
@@ -236,6 +333,17 @@ public:
         glUniform1i(glGetUniformLocation(boxshader.Program, "skybox"), 0);
         glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapTexture);
         glDrawArrays(GL_TRIANGLES, 0, 36);
+        glBindVertexArray(0);
+        */
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, cubemapTexture);
+        glBindVertexArray(vertexArrayID);
+        GLuint panoramaID = glGetUniformLocation(boxshader.Program, "panorama");
+        glUniform1i(panoramaID, 0);
+
+        //glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vertexBufferIndicesID);
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+        
         glBindVertexArray(0);
         glDepthFunc(GL_LESS); // Set depth function back to default
     }
