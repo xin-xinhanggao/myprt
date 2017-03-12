@@ -78,6 +78,7 @@ add_executable(myprt
 	common/stb_image.h
 	common/stb_image_write.h
 	common/lamptexture.h
+	common/bvh_tree.h
 )
 target_link_libraries(myprt
 	${ALL_LIBS}

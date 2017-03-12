@@ -6,6 +6,7 @@
 #include "Camera.h"
 #include "texture.h"
 #include "lamptexture.h"
+#include "bvh_tree.h"
 
 #include <iostream>
 #include <cmath>
@@ -32,6 +33,7 @@ private:
 	Shader modelshader;
 	Shader boxshader;
 	Model ourModel;
+    BvhTree bvhTree;
     LampTexture* lamptexture;
 
     GLfloat envmap[12] = {
@@ -195,19 +197,6 @@ private:
         }
     }
 
-public:
-	Prt()
-    {
-        generate_sample_angles();
-        generate_sh();
-        
-        lamptexture = new LampTexture("/Users/apple/Desktop/myprt/texture/Lamp.jpg");
-        modelshader.load("/Users/apple/Desktop/myprt/shader/model.vs", "/Users/apple/Desktop/myprt/shader/model.frag");
-        boxshader.load("/Users/apple/Desktop/myprt/shader/envmap.vs", "/Users/apple/Desktop/myprt/shader/envmap.frag");
-        //boxshader.load("/Users/apple/Desktop/myprt/shader/skybox.vs", "/Users/apple/Desktop/myprt/shader/skybox.frag");
-        ourModel.loadModel("/Users/apple/Desktop/myprt/obj/nanosuit/nanosuit.obj");
-    }
-    
     glm::vec3 calc_diffuse_color(Vertex vertex)
     {
         int lmaxlmax = (lmax + 1) * (lmax + 1);
@@ -217,7 +206,6 @@ public:
         }
 
         for (int j = 0; j < samps; ++j) {
-            //glm::vec3 color_value = panorama.get_color(phi[j], theta[j]);
             glm::vec3 color_value = glm::vec3(5.0,5.0,5.0) * lamptexture->get_color(phi[j],theta[j]);
             // calc light
             for (int k = 0; k < lmaxlmax; ++k) {
@@ -225,8 +213,9 @@ public:
             }
             // calc transfer
             //glm::vec3 pos(model.positionData[i], model.positionData[i + 1], model.positionData[i + 2]);
-            //glm::vec3 dir(sin(theta[j]) * cos(phi[j]), sin(theta[j]) * sin(phi[j]), cos(theta[j]));
-            if (1)//!bvhTree.ray_intersect_with_mesh(BvhTree::Ray(pos, dir)))
+            glm::vec3 dir(sin(theta[j]) * cos(phi[j]), sin(theta[j]) * sin(phi[j]), cos(theta[j]));
+            //if (1)//!bvhTree.ray_intersect_with_mesh(BvhTree::Ray(pos, dir)))
+            if(!bvhTree.ray_intersect_with_mesh(BvhTree::Ray(vertex.Position,dir)))
             {
                 float cos_value = glm::dot(
                     vertex.Normal,
@@ -248,6 +237,21 @@ public:
 
         return color;
     }
+
+public:
+	Prt()
+    {
+        generate_sample_angles();
+        generate_sh();
+        
+        lamptexture = new LampTexture("/Users/apple/Desktop/myprt/texture/Lamp.jpg");
+        modelshader.load("/Users/apple/Desktop/myprt/shader/model.vs", "/Users/apple/Desktop/myprt/shader/model.frag");
+        boxshader.load("/Users/apple/Desktop/myprt/shader/envmap.vs", "/Users/apple/Desktop/myprt/shader/envmap.frag");
+        //boxshader.load("/Users/apple/Desktop/myprt/shader/skybox.vs", "/Users/apple/Desktop/myprt/shader/skybox.frag");
+        ourModel.loadModel("/Users/apple/Desktop/myprt/obj/nanosuit/nanosuit.obj");
+        bvhTree.load(ourModel);
+    }
+    
 
 	void prepare()
     {
@@ -310,8 +314,9 @@ public:
         // Draw scene as normal
         modelshader.Use();
         glm::mat4 model;
-        model = glm::translate(model, glm::vec3(0.0f, -1.75f, 0.0f)); // Translate it down a bit so it's at the center of the scene
-        model = glm::scale(model, glm::vec3(0.2f, 0.2f, 0.2f));	// It's a bit too big for our scene, so scale it down
+        model = glm::scale(model, glm::vec3(1.0f, 1.0f, 1.0f));
+        //model = glm::translate(model, glm::vec3(0.0f, -1.75f, 0.0f)); // Translate it down a bit so it's at the center of the scene
+        //model = glm::scale(model, glm::vec3(0.2f, 0.2f, 0.2f));	// It's a bit too big for our scene, so scale it down
         glm::mat4 view = camera.GetViewMatrix();
         glm::mat4 projection = glm::perspective(camera.Zoom, (float)screenWidth/(float)screenHeight, 0.1f, 100.0f);
         glUniformMatrix4fv(glGetUniformLocation(modelshader.Program, "model"), 1, GL_FALSE, glm::value_ptr(model));
