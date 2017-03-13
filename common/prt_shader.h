@@ -10,6 +10,8 @@
 
 #include <iostream>
 #include <cmath>
+#include <string>
+#include <ctime>
 #include <vector>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -19,7 +21,7 @@
 class Prt{
 private:
     int lmax = 5;
-    const static int samps = 100;
+    const static int samps = 4;
 
     std::vector<float> phi, theta;
     std::vector<float> p_coeff;
@@ -33,7 +35,9 @@ private:
 	Shader modelshader;
 	Shader boxshader;
 	Model ourModel;
+    Model ourFloor;
     BvhTree bvhTree;
+    char *lampdir = "/Users/apple/Desktop/myprt/texture/Chelsea_Stairs_8k.jpg";
     LampTexture* lamptexture;
 
     GLfloat envmap[12] = {
@@ -197,7 +201,7 @@ private:
         }
     }
 
-    glm::vec3 calc_diffuse_color(Vertex vertex)
+    glm::vec3 calc_diffuse_color(Vertex vertex, glm::vec3 lightcolor = glm::vec3(1.0,1.0,1.0))
     {
         int lmaxlmax = (lmax + 1) * (lmax + 1);
         for (int j = 0; j < lmaxlmax; ++j) {
@@ -206,7 +210,7 @@ private:
         }
 
         for (int j = 0; j < samps; ++j) {
-            glm::vec3 color_value = glm::vec3(5.0,5.0,5.0) * lamptexture->get_color(phi[j],theta[j]);
+            glm::vec3 color_value = lightcolor * lamptexture->get_color(phi[j],theta[j]);
             // calc light
             for (int k = 0; k < lmaxlmax; ++k) {
                 light_coeff[k] += color_value * y_coeff[j][k];
@@ -214,7 +218,6 @@ private:
             // calc transfer
             //glm::vec3 pos(model.positionData[i], model.positionData[i + 1], model.positionData[i + 2]);
             glm::vec3 dir(sin(theta[j]) * cos(phi[j]), sin(theta[j]) * sin(phi[j]), cos(theta[j]));
-            //if (1)//!bvhTree.ray_intersect_with_mesh(BvhTree::Ray(pos, dir)))
             if(!bvhTree.ray_intersect_with_mesh(BvhTree::Ray(vertex.Position,dir)))
             {
                 float cos_value = glm::dot(
@@ -241,15 +244,20 @@ private:
 public:
 	Prt()
     {
+        srand((int)time(0));
         generate_sample_angles();
         generate_sh();
-        
-        lamptexture = new LampTexture("/Users/apple/Desktop/myprt/texture/Lamp.jpg");
+
+        lamptexture = new LampTexture(lampdir);
         modelshader.load("/Users/apple/Desktop/myprt/shader/model.vs", "/Users/apple/Desktop/myprt/shader/model.frag");
         boxshader.load("/Users/apple/Desktop/myprt/shader/envmap.vs", "/Users/apple/Desktop/myprt/shader/envmap.frag");
         //boxshader.load("/Users/apple/Desktop/myprt/shader/skybox.vs", "/Users/apple/Desktop/myprt/shader/skybox.frag");
-        ourModel.loadModel("/Users/apple/Desktop/myprt/obj/nanosuit/nanosuit.obj");
+        //ourModel.loadModel("/Users/apple/Desktop/myprt/obj/nanosuit/nanosuit.obj");
+        ourModel.loadModel("/Users/apple/Desktop/myprt/obj/buddha/buddha.obj");
+        ourFloor.loadModel("/Users/apple/Desktop/myprt/obj/floor/floor.obj");
         bvhTree.load(ourModel);
+        bvhTree.load(ourFloor);
+        bvhTree.tobuild();
     }
     
 
@@ -276,7 +284,7 @@ public:
         glGenTextures(1, &cubemapTexture);
         glBindTexture(GL_TEXTURE_2D, cubemapTexture);
         int width, height;
-        unsigned char* image = SOIL_load_image("/Users/apple/Desktop/myprt/texture/Lamp.jpg", &width, &height, 0, SOIL_LOAD_RGB);
+        unsigned char* image = SOIL_load_image(lampdir, &width, &height, 0, SOIL_LOAD_RGB);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
@@ -303,8 +311,16 @@ public:
             Mesh& mesh = ourModel.meshes[i];
             for(int j = 0; j < mesh.vertices.size(); j++)
             {
-                mesh.vertices[j].Prtcolor = calc_diffuse_color(mesh.vertices[j]);
+                mesh.vertices[j].Prtcolor = calc_diffuse_color(mesh.vertices[j], glm::vec3(0.1, 0.1, 0.1));
             }
+            mesh.setup();
+        }
+
+        for(int i = 0; i < ourFloor.meshes.size(); i++)
+        {
+            Mesh& mesh = ourFloor.meshes[i];
+            for(int j = 0; j < mesh.vertices.size(); j++)
+                mesh.vertices[j].Prtcolor = calc_diffuse_color(mesh.vertices[j]);
             mesh.setup();
         }
     }
@@ -323,7 +339,7 @@ public:
         glUniformMatrix4fv(glGetUniformLocation(modelshader.Program, "view"), 1, GL_FALSE, glm::value_ptr(view));
         glUniformMatrix4fv(glGetUniformLocation(modelshader.Program, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
         ourModel.Draw(modelshader);
-        
+        ourFloor.Draw(modelshader);
         
         // Draw skybox as last
         glDepthFunc(GL_LEQUAL);  // Change depth function so depth test passes when values are equal to depth buffer's content

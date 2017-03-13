@@ -105,11 +105,12 @@ private:
             vector.z = mesh->mVertices[i].z;
 
             //for test
-            
+            /*
             vector.x *= 0.2f;
             vector.y *= 0.2f;
             vector.z *= 0.2f;
             vector.y += -1.75f;
+            */
             //
 
 

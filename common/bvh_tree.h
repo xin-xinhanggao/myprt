@@ -138,7 +138,6 @@ public:
 		delete[] queue;
 	}
 	void load(const Model& model){
-		fprintf(stderr, "Start building BVH-tree.\n");
 		for(int i = 0; i < model.meshes.size(); i++)
 		{
 			const Mesh& mesh = model.meshes[i];
@@ -150,11 +149,17 @@ public:
 				triangles.push_back(Triangle(mesh.vertices[x].Position, mesh.vertices[y].Position, mesh.vertices[z].Position));
 			}
 		}
+	}
+
+	void tobuild()
+	{
+		fprintf(stderr, "Start building BVH-tree.\n");
 		t = new Node[triangles.size() * 4];
 		queue = new int[triangles.size() * 4];
 		build(1, 0, triangles.size() - 1);
 		fprintf(stderr, "Finish building BVH-tree successfully.\n");
 	}
+
 	bool ray_intersect_with_mesh(const Ray& ray, int k = 1){
 		queue[1] = 1;
 		int rr;
