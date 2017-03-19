@@ -113,6 +113,12 @@ private:
             */
             //
 
+            vector.z -= 1.5f;
+            //vector.x -= 1.5f;
+            vector.y -= 0.5f;
+            //vector.x *= 4.0f;
+            //vector.y *= 4.0f;
+            //vector.z *= 4.0f;
 
             vertex.Position = vector;
             // Normals

@@ -80,7 +80,7 @@ int main()
     glDepthFunc(GL_LESS);
     
     // Setup and compile our shaders
-    Prt prt;
+    Prt prt(camera);
     prt.prepare();
 
     // Game loop
