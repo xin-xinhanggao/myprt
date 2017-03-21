@@ -94,6 +94,8 @@ private:
         vector<GLuint> indices;
         vector<Texture> textures;
 
+        glm::mat3 model(0.2, 0, 0, 0, 0.2, 0, 0, 0, -0.2);
+        glm::mat3 model_trans_inverse = glm::transpose(glm::inverse(model));
         // Walk through each of the mesh's vertices
         for(GLuint i = 0; i < mesh->mNumVertices; i++)
         {
@@ -104,27 +106,17 @@ private:
             vector.y = mesh->mVertices[i].y;
             vector.z = mesh->mVertices[i].z;
 
-            //for test
-            /*
-            vector.x *= 0.2f;
-            vector.y *= 0.2f;
-            vector.z *= 0.2f;
-            vector.y += -1.75f;
-            */
-            //
-
-            vector.z -= 1.5f;
-            //vector.x -= 1.5f;
-            vector.y -= 0.5f;
-            //vector.x *= 4.0f;
-            //vector.y *= 4.0f;
-            //vector.z *= 4.0f;
-
+            //for model matrix
+            vector = model * vector;
             vertex.Position = vector;
+
             // Normals
             vector.x = mesh->mNormals[i].x;
             vector.y = mesh->mNormals[i].y;
             vector.z = mesh->mNormals[i].z;
+
+            //for model matrix
+            vector = model_trans_inverse * vector;
             vertex.Normal = vector;
             // Texture Coordinates
             if(mesh->mTextureCoords[0]) // Does the mesh contain texture coordinates?

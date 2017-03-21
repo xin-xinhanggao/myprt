@@ -20,8 +20,8 @@
 
 class Prt{
 private:
-    int lmax = 3;
-    const static int samps = 36;
+    int lmax = 2;
+    const static int samps = 100;
 
     std::vector<float> phi, theta;
     std::vector<float> p_coeff;
@@ -38,8 +38,8 @@ private:
     Model ourFloor;
     BvhTree bvhTree;
     Camera camera;
-    char *lampdir = "/Users/apple/Desktop/myprt/texture/Chelsea_Stairs_8k.jpg";
-    LampTexture* lamptexture;
+    
+    LampTexture* lamptexture[6];
 
     GLfloat envmap[12] = {
         -1.f, -1.f, 0.f,
@@ -102,6 +102,82 @@ private:
 	GLuint skyboxVAO, cubemapTexture, skyboxVBO;
     GLuint vertexArrayID, vertexBufferPositionID, vertexBufferIndicesID;
 	std::vector<const GLchar*> faces;
+
+    void convert_xyz_to_cube_uv(glm::vec3 dir, int *index, float *u, float *v)
+    {
+      float x = dir.x;
+      float y = dir.y;
+      float z = dir.z;
+
+      float absX = fabs(x);
+      float absY = fabs(y);
+      float absZ = fabs(z);
+      
+      int isXPositive = x > 0 ? 1 : 0;
+      int isYPositive = y > 0 ? 1 : 0;
+      int isZPositive = z > 0 ? 1 : 0;
+      
+      float maxAxis, uc, vc;
+      
+      // POSITIVE X
+      if (isXPositive && absX >= absY && absX >= absZ) {
+        // u (0 to 1) goes from +z to -z
+        // v (0 to 1) goes from -y to +y
+        maxAxis = absX;
+        uc = -z;
+        vc = y;
+        *index = 0;
+      }
+      // NEGATIVE X
+      if (!isXPositive && absX >= absY && absX >= absZ) {
+        // u (0 to 1) goes from -z to +z
+        // v (0 to 1) goes from -y to +y
+        maxAxis = absX;
+        uc = z;
+        vc = y;
+        *index = 1;
+      }
+      // POSITIVE Y
+      if (isYPositive && absY >= absX && absY >= absZ) {
+        // u (0 to 1) goes from -x to +x
+        // v (0 to 1) goes from +z to -z
+        maxAxis = absY;
+        uc = x;
+        vc = -z;
+        *index = 2;
+      }
+      // NEGATIVE Y
+      if (!isYPositive && absY >= absX && absY >= absZ) {
+        // u (0 to 1) goes from -x to +x
+        // v (0 to 1) goes from -z to +z
+        maxAxis = absY;
+        uc = x;
+        vc = z;
+        *index = 3;
+      }
+      // POSITIVE Z
+      if (isZPositive && absZ >= absX && absZ >= absY) {
+        // u (0 to 1) goes from -x to +x
+        // v (0 to 1) goes from -y to +y
+        maxAxis = absZ;
+        uc = x;
+        vc = y;
+        *index = 4;
+      }
+      // NEGATIVE Z
+      if (!isZPositive && absZ >= absX && absZ >= absY) {
+        // u (0 to 1) goes from +x to -x
+        // v (0 to 1) goes from -y to +y
+        maxAxis = absZ;
+        uc = -x;
+        vc = y;
+        *index = 5;
+      }
+
+      // Convert range from -1 to 1 to 0 to 1
+      *u = 0.5f * (uc / maxAxis + 1.0f);
+      *v = 0.5f * (vc / maxAxis + 1.0f);
+    }
 
     int p(int l,int m) 
     {
@@ -466,7 +542,8 @@ private:
 
     float brdf(int inIndex, int outIndex) {
         // Blinn-Phong BRDF
-        /*
+        
+        
         glm::vec3 N( 0, 0, 1 );
         glm::vec3 L( sin(theta[inIndex]) * cos(phi[inIndex]), sin(theta[inIndex]) * sin(phi[inIndex]), cos(theta[inIndex]) );
         glm::vec3 V( sin(theta[outIndex]) * cos(phi[outIndex]), sin(theta[outIndex]) * sin(phi[outIndex]), cos(theta[outIndex]));
@@ -474,11 +551,9 @@ private:
         if (L.z < 0 || V.z < 0)
             return 0.f;
         return 0.5f + 3.5f * pow(fmax(0.f,glm::dot(N, H)), 8.f) / glm::dot(N, L);
-        */
-        return 1.0;
     }
 
-    glm::vec3 calc_diffuse_color(Vertex vertex, glm::vec3 lightcolor = glm::vec3(2.0,2.0,2.0))
+    glm::vec3 calc_diffuse_color(Vertex vertex, glm::vec3 lightcolor = glm::vec3(1.0,1.0,1.0))
     {
         int lmaxlmax = (lmax + 1) * (lmax + 1);
         for (int j = 0; j < lmaxlmax; ++j) {
@@ -487,7 +562,13 @@ private:
         }
 
         for (int j = 0; j < samps; ++j) {
-            glm::vec3 color_value = lightcolor * lamptexture->get_color(phi[j],theta[j]);
+            glm::vec3 lightdir(sin(theta[j]) * cos(phi[j]), sin(theta[j]) * sin(phi[j]), cos(theta[j]));
+            int index;
+            float u,v;
+            convert_xyz_to_cube_uv(lightdir, &index, &u, &v);
+            glm::vec3 color_value = lightcolor * lamptexture[index]->get_color_uv(u,v);
+            
+            
             // calc light
             for (int k = 0; k < lmaxlmax; ++k) {
                 light_coeff[k] += color_value * y_coeff[j][k];
@@ -495,6 +576,7 @@ private:
             // calc transfer
 
             glm::vec3 dir(sin(theta[j]) * cos(phi[j]), sin(theta[j]) * sin(phi[j]), cos(theta[j]));
+
             if(!bvhTree.ray_intersect_with_mesh(BvhTree::Ray(vertex.Position,dir)))
             {
                 float cos_value = glm::dot(
@@ -514,12 +596,11 @@ private:
             transfer_coeff[j] *= (4.f * M_PI) / float(samps);
             color += light_coeff[j] * transfer_coeff[j] / float(M_PI);
         }
-
         return color;
     }
 
 
-    glm::vec3 calc_glossy_color(Vertex vertex, glm::vec3 lightcolor = glm::vec3(0.6,0.6,0.6))
+    glm::vec3 calc_glossy_color(Vertex vertex, glm::vec3 lightcolor = glm::vec3(5.0,5.0,5.0))
     {
         std::vector<glm::vec3> light, shadow, local, reflect;
 
@@ -529,7 +610,12 @@ private:
         for (int j = 0; j < lmaxlmax; ++j) {
             glm::vec3 light_coeff( 0, 0, 0 );
             for (int k = 0; k < samps; ++k) {
-                glm::vec3 color_value = lightcolor * lamptexture->get_color(phi[k],theta[k]);
+                glm::vec3 lightdir(sin(theta[k]) * cos(phi[k]), sin(theta[k]) * sin(phi[k]), cos(theta[k]));
+                int index;
+                float u,v;
+                convert_xyz_to_cube_uv(lightdir, &index, &u, &v);
+                glm::vec3 color_value = lightcolor * lamptexture[index]->get_color_uv(u,v);
+
                 light_coeff += color_value * y_coeff[k][j];
             }
             light.push_back(light_coeff * float(4.f * M_PI) / float(samps));
@@ -556,6 +642,7 @@ private:
         float alpha = atan2(zcz.y, zcz.x) - M_PI * 0.5f;
         float beta = acos(zdz);
         float gamma = 0;
+        
         glm::mat3 m1( cos(alpha),sin(alpha),0,-sin(alpha),cos(alpha),0,0,0,1 );
         glm::mat3 m2( cos(beta),0,-sin(beta),0,1,0,sin(beta),0,cos(beta) );
         glm::mat3 m3( cos(gamma),sin(gamma),0,-sin(gamma),cos(gamma),0,0,0,1 );
@@ -570,7 +657,7 @@ private:
         rotate_z(tmp4, local, -gamma);
         
         // calc B * R * T * vector (reflection)
-
+        
         
         for (int j = 0; j < lmaxlmax; ++j) {
             glm::vec3 reflect_coeff = glm::vec3(0,0,0);
@@ -591,6 +678,7 @@ private:
             color += yy[j] * reflect[j] / float(M_PI);
         
         return color;
+        
     
     }
 
@@ -602,23 +690,34 @@ public:
         generate_sh();
 
         this->camera = camera;
-        lamptexture = new LampTexture(lampdir);
+        
         modelshader.load("/Users/apple/Desktop/myprt/shader/model.vs", "/Users/apple/Desktop/myprt/shader/model.frag");
-        boxshader.load("/Users/apple/Desktop/myprt/shader/envmap.vs", "/Users/apple/Desktop/myprt/shader/envmap.frag");
-        //boxshader.load("/Users/apple/Desktop/myprt/shader/skybox.vs", "/Users/apple/Desktop/myprt/shader/skybox.frag");
-        //ourModel.loadModel("/Users/apple/Desktop/myprt/obj/nanosuit/nanosuit.obj");
-        ourModel.loadModel("/Users/apple/Desktop/myprt/obj/buddha/buddha.obj");
+        //boxshader.load("/Users/apple/Desktop/myprt/shader/envmap.vs", "/Users/apple/Desktop/myprt/shader/envmap.frag");
+        boxshader.load("/Users/apple/Desktop/myprt/shader/skybox.vs", "/Users/apple/Desktop/myprt/shader/skybox.frag");
+        ourModel.loadModel("/Users/apple/Desktop/myprt/obj/nanosuit/nanosuit.obj");
+        //ourModel.loadModel("/Users/apple/Desktop/myprt/obj/buddha/buddha.obj");
         //ourModel.loadModel("/Users/apple/Desktop/myprt/obj/suzanne/suzanne.obj");
         ourFloor.loadModel("/Users/apple/Desktop/myprt/obj/floor/floor.obj");
         bvhTree.load(ourModel);
-        //bvhTree.load(ourFloor);
+        bvhTree.load(ourFloor);
         bvhTree.tobuild();
+
+        faces.push_back("/Users/apple/Desktop/myprt/texture/skybox/right.jpg");
+        faces.push_back("/Users/apple/Desktop/myprt/texture/skybox/left.jpg");
+        faces.push_back("/Users/apple/Desktop/myprt/texture/skybox/top.jpg");
+        faces.push_back("/Users/apple/Desktop/myprt/texture/skybox/bottom.jpg");
+        faces.push_back("/Users/apple/Desktop/myprt/texture/skybox/back.jpg");
+        faces.push_back("/Users/apple/Desktop/myprt/texture/skybox/front.jpg");
+        for(int i = 0; i < 6; i++)
+        {
+            lamptexture[i] = new LampTexture(faces[i]);
+        }
     }
     
 
 	void prepare()
     {
-        /*
+        
         glGenVertexArrays(1, &skyboxVAO);
         glGenBuffers(1, &skyboxVBO);
         glBindVertexArray(skyboxVAO);
@@ -628,39 +727,8 @@ public:
         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (GLvoid*)0);
         glBindVertexArray(0);
         
-        faces.push_back("/Users/apple/Desktop/myprt/texture/skybox/right.jpg");
-        faces.push_back("/Users/apple/Desktop/myprt/texture/skybox/left.jpg");
-        faces.push_back("/Users/apple/Desktop/myprt/texture/skybox/top.jpg");
-        faces.push_back("/Users/apple/Desktop/myprt/texture/skybox/bottom.jpg");
-        faces.push_back("/Users/apple/Desktop/myprt/texture/skybox/back.jpg");
-        faces.push_back("/Users/apple/Desktop/myprt/texture/skybox/front.jpg");
         cubemapTexture = loadCubemap(faces);
-        */
-        glGenTextures(1, &cubemapTexture);
-        glBindTexture(GL_TEXTURE_2D, cubemapTexture);
-        int width, height;
-        unsigned char* image = SOIL_load_image(lampdir, &width, &height, 0, SOIL_LOAD_RGB);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glBindTexture(GL_TEXTURE_2D, 0);
-
-        glGenVertexArrays(1, &vertexArrayID);
-        glBindVertexArray(vertexArrayID);
-
-        glGenBuffers(1, &vertexBufferPositionID);
-        glBindBuffer(GL_ARRAY_BUFFER, vertexBufferPositionID);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(envmap), envmap, GL_STATIC_DRAW);
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
-        glEnableVertexAttribArray(0);
-
-        glGenBuffers(1, &vertexBufferIndicesID);
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vertexBufferIndicesID);
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
-        glBindVertexArray(0);
-
+        
         std::cout<<ourModel.meshes.size()<<std::endl;
         for(int i = 0; i < ourModel.meshes.size(); i++)
         {
@@ -669,20 +737,23 @@ public:
             for(int j = 0; j < mesh.vertices.size(); j++)
             {
                 std::cout<<j<<std::endl;
-                mesh.vertices[j].Prtcolor = calc_glossy_color(mesh.vertices[j]);
+                mesh.vertices[j].Prtcolor = calc_diffuse_color(mesh.vertices[j]);
             }
             mesh.setup();
         }
 
-        /*
+        
         for(int i = 0; i < ourFloor.meshes.size(); i++)
         {
             Mesh& mesh = ourFloor.meshes[i];
             for(int j = 0; j < mesh.vertices.size(); j++)
-                mesh.vertices[j].Prtcolor = calc_glossy_color(mesh.vertices[j]);
+            {
+                std::cout<<j<< " "<< mesh.vertices.size()<<std::endl;
+                mesh.vertices[j].Prtcolor = calc_diffuse_color(mesh.vertices[j], glm::vec3(0.6,0.6,0.6));
+            }
             mesh.setup();
         }
-        */
+        
     }
 
 	void render(Camera camera)
@@ -698,12 +769,12 @@ public:
         glUniformMatrix4fv(glGetUniformLocation(modelshader.Program, "view"), 1, GL_FALSE, glm::value_ptr(view));
         glUniformMatrix4fv(glGetUniformLocation(modelshader.Program, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
         ourModel.Draw(modelshader);
-        //ourFloor.Draw(modelshader);
+        ourFloor.Draw(modelshader);
         
         // Draw skybox as last
         glDepthFunc(GL_LEQUAL);  // Change depth function so depth test passes when values are equal to depth buffer's content
         boxshader.Use();
-        /*
+        
         view = glm::mat4(glm::mat3(camera.GetViewMatrix()));	// Remove any translation component of the view matrix
         glUniformMatrix4fv(glGetUniformLocation(boxshader.Program, "view"), 1, GL_FALSE, glm::value_ptr(view));
         glUniformMatrix4fv(glGetUniformLocation(boxshader.Program, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
@@ -714,17 +785,7 @@ public:
         glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapTexture);
         glDrawArrays(GL_TRIANGLES, 0, 36);
         glBindVertexArray(0);
-        */
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, cubemapTexture);
-        glBindVertexArray(vertexArrayID);
-        GLuint panoramaID = glGetUniformLocation(boxshader.Program, "panorama");
-        glUniform1i(panoramaID, 0);
-
-        //glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vertexBufferIndicesID);
-        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
         
-        glBindVertexArray(0);
         glDepthFunc(GL_LESS); // Set depth function back to default
     }
 

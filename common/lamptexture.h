@@ -9,7 +9,7 @@
 #include <string>
 #include <utility>
 #include <algorithm>
-#include "stb_image.h"
+#include "SOIL.h"
 
 class LampTexture {
     int width;
@@ -19,17 +19,15 @@ class LampTexture {
 public:
     LampTexture(std::string fileName)
     {
-        data = stbi_load(fileName.c_str(), &width, &height, &channels, 0);
+        data = SOIL_load_image(fileName.c_str(), &width, &height, &channels, SOIL_LOAD_RGB);
     }
-    glm::vec3 get_color(float u, float v){
-        u = u  / 2.f / M_PI;
-        v = v  / M_PI;
 
-        u = u - floor(u);
-        v = v - floor(v);
+    glm::vec3 get_color_uv(float u, float v){
         if (u < 0 || u > 1 || v < 0 || v > 1) {
             return glm::vec3(0, 0, 0);
         }
+
+        v = 1.0 - v;
         int w = int(u * (width-1));
         int h = int(v * (height-1));
         float r = float(data[(h * width + w) * channels]) / 255.f;
@@ -37,6 +35,7 @@ public:
         float b = float(data[(h * width + w) * channels + 2]) / 255.f;
         return glm::vec3(r, g, b);
     }
+
     unsigned char* get_pointer(){
         return data;
     }

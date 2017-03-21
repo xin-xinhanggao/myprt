@@ -30,7 +30,7 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 void Do_Movement();
 
 // Camera
-Camera camera(glm::vec3(0.0f, 0.0f, 3.0f));
+Camera camera(glm::vec3(0.0f, 0.75f, 6.0f));
 bool keys[1024];
 GLfloat lastX = 400, lastY = 300;
 bool firstMouse = true;
@@ -41,6 +41,7 @@ GLfloat lastFrame = 0.0f;
 // The MAIN function, from here we start the application and run the game loop
 int main()
 {
+
     // Initialise GLFW
     if( !glfwInit() )
     {
@@ -105,6 +106,7 @@ int main()
     }
     
     glfwTerminate();
+    
     return 0;
 }
 
