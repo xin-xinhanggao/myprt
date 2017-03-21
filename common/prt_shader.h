@@ -21,7 +21,7 @@
 class Prt{
 private:
     int lmax = 2;
-    const static int samps = 100;
+    const static int samps = 25;
 
     std::vector<float> phi, theta;
     std::vector<float> p_coeff;
@@ -737,7 +737,7 @@ public:
             for(int j = 0; j < mesh.vertices.size(); j++)
             {
                 std::cout<<j<<std::endl;
-                mesh.vertices[j].Prtcolor = calc_diffuse_color(mesh.vertices[j]);
+                mesh.vertices[j].Prtcolor = calc_diffuse_color(mesh.vertices[j], glm::vec3(5.0,5.0,5.0));
             }
             mesh.setup();
         }

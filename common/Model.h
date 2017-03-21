@@ -117,7 +117,7 @@ private:
 
             //for model matrix
             vector = model_trans_inverse * vector;
-            vertex.Normal = vector;
+            vertex.Normal = glm::normalize(vector);
             // Texture Coordinates
             if(mesh->mTextureCoords[0]) // Does the mesh contain texture coordinates?
             {
