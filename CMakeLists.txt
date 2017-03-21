@@ -75,8 +75,6 @@ add_executable(myprt
 	common/Mesh.h
 	common/texture.h
 	common/prt_shader.h
-	common/stb_image.h
-	common/stb_image_write.h
 	common/lamptexture.h
 	common/bvh_tree.h
 )
