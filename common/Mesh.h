@@ -22,6 +22,10 @@ struct Vertex {
     glm::vec2 TexCoords;
     // prtcolor
     glm::vec3 Prtcolor;
+    // light coefficents
+    std::vector<glm::vec3> light_coeff;
+    // transfer coefficents
+    std::vector<glm::vec3> transfer_coeff;
 };
 
 struct Texture {

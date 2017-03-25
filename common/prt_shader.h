@@ -21,7 +21,8 @@
 class Prt{
 private:
     int lmax = 2;
-    const static int samps = 25;
+    float rotate_angle = 0.0;
+    const static int samps = 100;
 
     std::vector<float> phi, theta;
     std::vector<float> p_coeff;
@@ -102,6 +103,11 @@ private:
 	GLuint skyboxVAO, cubemapTexture, skyboxVBO;
     GLuint vertexArrayID, vertexBufferPositionID, vertexBufferIndicesID;
 	std::vector<const GLchar*> faces;
+
+    void update_rotate()
+    {
+        rotate_angle += 0.01;
+    }
 
     void convert_xyz_to_cube_uv(glm::vec3 dir, int *index, float *u, float *v)
     {
@@ -553,7 +559,7 @@ private:
         return 0.5f + 3.5f * pow(fmax(0.f,glm::dot(N, H)), 8.f) / glm::dot(N, L);
     }
 
-    glm::vec3 calc_diffuse_color(Vertex vertex, glm::vec3 lightcolor = glm::vec3(1.0,1.0,1.0))
+    void calc_diffuse_color(Vertex& vertex, glm::vec3 lightcolor = glm::vec3(1.0,1.0,1.0))
     {
         int lmaxlmax = (lmax + 1) * (lmax + 1);
         for (int j = 0; j < lmaxlmax; ++j) {
@@ -590,13 +596,12 @@ private:
                 }
             }
         }
-        glm::vec3 color(0, 0, 0);
-        for (int j = 0; j < lmaxlmax; ++j) {
-            light_coeff[j] *= (4.f * M_PI) / float(samps);
-            transfer_coeff[j] *= (4.f * M_PI) / float(samps);
-            color += light_coeff[j] * transfer_coeff[j] / float(M_PI);
+
+        for(int j = 0; j < lmaxlmax; ++j)
+        {
+            vertex.light_coeff.push_back(light_coeff[j]);
+            vertex.transfer_coeff.push_back(transfer_coeff[j]);
         }
-        return color;
     }
 
 
@@ -674,9 +679,11 @@ private:
         std::vector<float> yy;
         calc_sh_coeff(acos(dir.z),atan2(dir.y, dir.x),yy);
         glm::vec3 color(0, 0, 0);
-        for (int j = 0; j < lmaxlmax; ++j)
-            color += yy[j] * reflect[j] / float(M_PI);
         
+        for (int j = 0; j < lmaxlmax; ++j)
+        {
+            color += yy[j] * reflect[j] / float(M_PI);
+        }
         return color;
         
     
@@ -697,16 +704,20 @@ public:
         ourModel.loadModel("/Users/apple/Desktop/myprt/obj/nanosuit/nanosuit.obj");
         //ourModel.loadModel("/Users/apple/Desktop/myprt/obj/buddha/buddha.obj");
         //ourModel.loadModel("/Users/apple/Desktop/myprt/obj/suzanne/suzanne.obj");
-        ourFloor.loadModel("/Users/apple/Desktop/myprt/obj/floor/floor.obj");
+        ourFloor.loadModel("/Users/apple/Desktop/myprt/obj/floor/a.obj");
         bvhTree.load(ourModel);
         bvhTree.load(ourFloor);
         bvhTree.tobuild();
 
-        faces.push_back("/Users/apple/Desktop/myprt/texture/skybox/right.jpg");
-        faces.push_back("/Users/apple/Desktop/myprt/texture/skybox/left.jpg");
-        faces.push_back("/Users/apple/Desktop/myprt/texture/skybox/top.jpg");
+        //faces.push_back("/Users/apple/Desktop/myprt/texture/skybox/right.jpg");
+        //faces.push_back("/Users/apple/Desktop/myprt/texture/skybox/left.jpg");
+        //faces.push_back("/Users/apple/Desktop/myprt/texture/skybox/top.jpg");
         faces.push_back("/Users/apple/Desktop/myprt/texture/skybox/bottom.jpg");
-        faces.push_back("/Users/apple/Desktop/myprt/texture/skybox/back.jpg");
+        faces.push_back("/Users/apple/Desktop/myprt/texture/skybox/bottom.jpg");
+        faces.push_back("/Users/apple/Desktop/myprt/texture/skybox/bottom.jpg");
+        faces.push_back("/Users/apple/Desktop/myprt/texture/skybox/bottom.jpg");
+        faces.push_back("/Users/apple/Desktop/myprt/texture/skybox/bottom.jpg");
+        //faces.push_back("/Users/apple/Desktop/myprt/texture/skybox/back.jpg");
         faces.push_back("/Users/apple/Desktop/myprt/texture/skybox/front.jpg");
         for(int i = 0; i < 6; i++)
         {
@@ -729,7 +740,6 @@ public:
         
         cubemapTexture = loadCubemap(faces);
         
-        std::cout<<ourModel.meshes.size()<<std::endl;
         for(int i = 0; i < ourModel.meshes.size(); i++)
         {
             Mesh& mesh = ourModel.meshes[i];
@@ -737,7 +747,50 @@ public:
             for(int j = 0; j < mesh.vertices.size(); j++)
             {
                 std::cout<<j<<std::endl;
-                mesh.vertices[j].Prtcolor = calc_diffuse_color(mesh.vertices[j], glm::vec3(5.0,5.0,5.0));
+                calc_diffuse_color(mesh.vertices[j], glm::vec3(6.0,6.0,6.0));
+                //mesh.vertices[j].Prtcolor = calc_diffuse_color(mesh.vertices[j], glm::vec3(3.0,3.0,3.0));
+            }
+        }
+
+        
+        for(int i = 0; i < ourFloor.meshes.size(); i++)
+        {
+            Mesh& mesh = ourFloor.meshes[i];
+            for(int j = 0; j < mesh.vertices.size(); j++)
+            {
+                std::cout<<j<< " "<< mesh.vertices.size()<<std::endl;
+                calc_diffuse_color(mesh.vertices[j], glm::vec3(4.0,4.0,4.0));
+                //mesh.vertices[j].Prtcolor = calc_diffuse_color(mesh.vertices[j], glm::vec3(0.6,0.6,0.6));
+            }
+        }
+        
+    }
+
+	void render(Camera camera)
+    {
+        update_rotate();
+        std::cout<<rotate_angle<<std::endl;
+        int lmaxlmax = (lmax + 1) * (lmax + 1);
+        
+        // Draw scene as normal
+        for(int i = 0; i < ourModel.meshes.size(); i++)
+        {
+            Mesh& mesh = ourModel.meshes[i];
+            for(int j = 0; j < mesh.vertices.size(); j++)
+            {
+                glm::vec3 color(0, 0, 0);
+                Vertex vertex = mesh.vertices[j];
+                
+                std::vector<glm::vec3> tmp1, tmp2, local;
+                
+                rotate_x_plus(vertex.light_coeff, tmp1);
+                rotate_z(tmp1, tmp2, rotate_angle * 3.1415);
+                rotate_x_minus(tmp2, local);
+                
+                for (int k = 0; k < lmaxlmax; ++k)
+                    color += (local[k] * float(4.f * M_PI) / float(samps)) * (vertex.transfer_coeff[k] * float(4.f * M_PI) / float(samps)) / float(M_PI);
+                    //color += (vertex.light_coeff[k] * float(4.f * M_PI) / float(samps)) * (vertex.transfer_coeff[k] * float(4.f * M_PI) / float(samps)) / float(M_PI);
+                mesh.vertices[j].Prtcolor = color;
             }
             mesh.setup();
         }
@@ -748,17 +801,24 @@ public:
             Mesh& mesh = ourFloor.meshes[i];
             for(int j = 0; j < mesh.vertices.size(); j++)
             {
-                std::cout<<j<< " "<< mesh.vertices.size()<<std::endl;
-                mesh.vertices[j].Prtcolor = calc_diffuse_color(mesh.vertices[j], glm::vec3(0.6,0.6,0.6));
+                glm::vec3 color(0, 0, 0);
+                Vertex vertex = mesh.vertices[j];
+                
+                std::vector<glm::vec3> tmp1, tmp2, local;
+                
+                rotate_x_plus(vertex.light_coeff, tmp1);
+                rotate_z(tmp1, tmp2, rotate_angle * 3.1415);
+                rotate_x_minus(tmp2, local);
+                
+                for (int k = 0; k < lmaxlmax; ++k)
+                    color += (local[k] * float(4.f * M_PI) / float(samps)) * (vertex.transfer_coeff[k] * float(4.f * M_PI) / float(samps)) / float(M_PI);
+                    //color += (vertex.light_coeff[k] * float(4.f * M_PI) / float(samps)) * (vertex.transfer_coeff[k] * float(4.f * M_PI) / float(samps)) / float(M_PI);
+                mesh.vertices[j].Prtcolor = color;
             }
             mesh.setup();
         }
         
-    }
-
-	void render(Camera camera)
-    {
-        // Draw scene as normal
+        
         modelshader.Use();
         glm::mat4 model;
         model = glm::scale(model, glm::vec3(1.0f, 1.0f, 1.0f));

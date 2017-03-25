@@ -30,7 +30,7 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 void Do_Movement();
 
 // Camera
-Camera camera(glm::vec3(0.0f, 0.75f, 6.0f));
+Camera camera(glm::vec3(0.0f, 2.75f, 6.0f));
 bool keys[1024];
 GLfloat lastX = 400, lastY = 300;
 bool firstMouse = true;
