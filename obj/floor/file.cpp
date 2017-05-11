@@ -11,7 +11,7 @@ int main()
 	float x = -8;
 	float y = -8;
 
-	int n = 100;
+	int n = 10;
 	float offset = -2.0 * (x) / (n * 1.0);
 
 	for(int i = 0; i < n + 1; i++)

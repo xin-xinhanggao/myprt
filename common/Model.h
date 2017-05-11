@@ -94,7 +94,7 @@ private:
         vector<GLuint> indices;
         vector<Texture> textures;
 
-        glm::mat3 model(0.35, 0, 0, 0, 0.35, 0, 0, 0, 0.35);
+        glm::mat3 model(0.45, 0, 0, 0, 0.45, 0, 0, 0, 0.45);
         glm::mat3 model_trans_inverse = glm::transpose(glm::inverse(model));
         // Walk through each of the mesh's vertices
         for(GLuint i = 0; i < mesh->mNumVertices; i++)
